@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Project {
+  id        String   @id @default(cuid())
+  name      String
+  client    String
+  status    String   @default("Discovery")
+  startDate DateTime @default(now())
+  notes      String   @default("")
+  assignedTo String   @default("")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Milestone {
+  id        String   @id @default(cuid())
+  projectId String
+  title     String
+  dueDate   DateTime
+  status    String   @default("pending") // "pending", "in-progress", "done"
+  createdAt DateTime @default(now())
+}
+
+model FinanceEntry {
+  id        String   @id @default(cuid())
+  type      String   // "income" or "expense"
+  category  String   // "Consulting" or "Agent Sale"
+  amount    Float
+  description String
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+}
+
+model Agent {
+  id           String   @id @default(cuid())
+  name         String
+  client       String
+  saleDate     DateTime @default(now())
+  price        Float
+  pricingModel String   // "one-time" or "monthly"
+  createdAt    DateTime @default(now())
+}
