@@ -1,35 +1,57 @@
 import { prisma } from "@/lib/db";
-import { LayoutDashboard, DollarSign, Bot, TrendingUp } from "lucide-react";
+import { CheckCircle2, LayoutDashboard, DollarSign, Bot, Briefcase } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
+function monthsElapsed(from: Date, to: Date): number {
+  const months =
+    (to.getFullYear() - from.getFullYear()) * 12 +
+    (to.getMonth() - from.getMonth());
+  return Math.max(0, months);
+}
+
 async function getKPIs() {
   const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [activeProjects, monthlyRevenue, agentsSoldThisMonth, recurringAgents] =
+  const [completedProjects, activeProjects, deliveredRevenue, agents, activeProjectRevenue] =
     await Promise.all([
       prisma.project.count({
-        where: { status: { in: ["Discovery", "In Progress"] } },
+        where: { status: "Delivered" },
       }),
-      prisma.financeEntry.aggregate({
-        _sum: { amount: true },
-        where: { type: "income", date: { gte: startOfMonth } },
+      prisma.project.count({
+        where: { status: { in: ["Discovery", "In Progress", "Maintenance"] } },
       }),
-      prisma.agent.count({
-        where: { saleDate: { gte: startOfMonth } },
+      prisma.project.aggregate({
+        _sum: { value: true },
+        where: { status: "Delivered" },
       }),
-      prisma.agent.aggregate({
-        _sum: { price: true },
-        where: { pricingModel: "monthly" },
+      prisma.agent.findMany({
+        select: { price: true, pricingModel: true, saleDate: true },
+      }),
+      prisma.project.aggregate({
+        _sum: { value: true },
+        where: { status: { in: ["Discovery", "In Progress", "Maintenance"] } },
       }),
     ]);
 
+  // Free trial = R0. One-time = full price. Monthly = price × full months elapsed.
+  const agentRevenue = agents.reduce((sum, agent) => {
+    if (agent.pricingModel === "free-trial") return sum;
+    if (agent.pricingModel === "monthly") {
+      return sum + agent.price * monthsElapsed(new Date(agent.saleDate), now);
+    }
+    return sum + agent.price;
+  }, 0);
+
+  const agentsSold = agents.length;
+  const totalRevenue = (deliveredRevenue._sum.value ?? 0) + agentRevenue;
+
   return {
+    completedProjects,
     activeProjects,
-    monthlyRevenue: monthlyRevenue._sum.amount ?? 0,
-    agentsSoldThisMonth,
-    mrr: recurringAgents._sum.price ?? 0,
+    totalRevenue,
+    agentsSold,
+    activeProjectRevenue: activeProjectRevenue._sum.value ?? 0,
   };
 }
 
@@ -38,24 +60,29 @@ export default async function DashboardPage() {
 
   const cards = [
     {
+      label: "Completed Projects",
+      value: kpis.completedProjects.toString(),
+      icon: CheckCircle2,
+    },
+    {
       label: "Active Projects",
       value: kpis.activeProjects.toString(),
       icon: LayoutDashboard,
     },
     {
-      label: "Monthly Revenue",
-      value: `R${kpis.monthlyRevenue.toLocaleString("en-ZA")}`,
+      label: "Total Revenue",
+      value: `R${kpis.totalRevenue.toLocaleString("en-ZA")}`,
       icon: DollarSign,
     },
     {
-      label: "Agents Sold (Month)",
-      value: kpis.agentsSoldThisMonth.toString(),
+      label: "Agents Sold",
+      value: kpis.agentsSold.toString(),
       icon: Bot,
     },
     {
-      label: "MRR",
-      value: `R${kpis.mrr.toLocaleString("en-ZA")}`,
-      icon: TrendingUp,
+      label: "Active Project Revenue",
+      value: `R${kpis.activeProjectRevenue.toLocaleString("en-ZA")}`,
+      icon: Briefcase,
     },
   ];
 
@@ -70,7 +97,7 @@ export default async function DashboardPage() {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6">
         {cards.map((card) => (
           <div
             key={card.label}
@@ -91,7 +118,7 @@ export default async function DashboardPage() {
 
       <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
         <RecentProjectsCard />
-        <RecentFinancesCard />
+        <LiveAgentsCard />
       </div>
     </div>
   );
@@ -137,33 +164,47 @@ async function RecentProjectsCard() {
   );
 }
 
-async function RecentFinancesCard() {
-  const entries = await prisma.financeEntry.findMany({
-    orderBy: { date: "desc" },
-    take: 5,
+async function LiveAgentsCard() {
+  const agents = await prisma.agent.findMany({
+    orderBy: { saleDate: "desc" },
   });
+
+  const pricingColors: Record<string, string> = {
+    monthly: "bg-clay/10 text-clay",
+    "one-time": "bg-moss/10 text-moss",
+    "free-trial": "bg-amber-50 text-amber-700",
+  };
+
+  const pricingLabels: Record<string, string> = {
+    monthly: "Recurring",
+    "one-time": "One-time",
+    "free-trial": "Free Trial",
+  };
 
   return (
     <div className="bg-moss/[0.03] border border-moss/10 rounded-[2rem] p-6 md:p-8">
-      <h2 className="font-heading font-bold text-lg text-moss mb-4">Recent Transactions</h2>
+      <h2 className="font-heading font-bold text-lg text-moss mb-4">Live Agents</h2>
       <div className="space-y-3">
-        {entries.map((e) => (
-          <div key={e.id} className="flex items-center justify-between">
+        {agents.map((a) => (
+          <div key={a.id} className="flex items-center justify-between">
             <div>
-              <p className="font-subheading font-medium text-sm text-moss">{e.description}</p>
-              <p className="font-subheading text-xs text-moss/50">{e.category}</p>
+              <p className="font-subheading font-medium text-sm text-moss">{a.name}</p>
+              <p className="font-subheading text-xs text-moss/50">{a.client}</p>
             </div>
-            <span
-              className={`font-heading font-bold text-sm ${
-                e.type === "income" ? "text-green-700" : "text-red-600"
-              }`}
-            >
-              {e.type === "income" ? "+" : "-"}R{Math.abs(e.amount).toLocaleString("en-ZA")}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={`font-mono-brand text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full ${pricingColors[a.pricingModel] || "bg-moss/10 text-moss"}`}>
+                {pricingLabels[a.pricingModel] || a.pricingModel}
+              </span>
+              <span className="font-heading font-bold text-sm text-moss">
+                {a.pricingModel === "free-trial"
+                  ? "Free"
+                  : `R${a.price.toLocaleString("en-ZA")}${a.pricingModel === "monthly" ? "/mo" : ""}`}
+              </span>
+            </div>
           </div>
         ))}
-        {entries.length === 0 && (
-          <p className="text-moss/40 font-subheading text-sm">No transactions yet</p>
+        {agents.length === 0 && (
+          <p className="text-moss/40 font-subheading text-sm">No agents yet</p>
         )}
       </div>
     </div>

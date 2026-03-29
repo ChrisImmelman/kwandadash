@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
       startDate: body.startDate ? new Date(body.startDate) : new Date(),
       notes: body.notes || "",
       assignedTo: body.assignedTo || "",
+      value: body.value ? parseFloat(body.value) : 0,
     },
   });
   return NextResponse.json(project, { status: 201 });
@@ -33,6 +34,7 @@ export async function PATCH(req: NextRequest) {
       ...(body.name && { name: body.name }),
       ...(body.client && { client: body.client }),
       ...(body.assignedTo !== undefined && { assignedTo: body.assignedTo }),
+      ...(body.value !== undefined && { value: parseFloat(body.value) }),
     },
   });
   return NextResponse.json(project);

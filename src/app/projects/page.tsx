@@ -19,6 +19,7 @@ interface Project {
   startDate: string;
   notes: string;
   assignedTo: string;
+  value: number;
 }
 
 interface Milestone {
@@ -207,7 +208,7 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", client: "", status: "Discovery", startDate: "", notes: "", assignedTo: "" });
+  const [form, setForm] = useState({ name: "", client: "", status: "Discovery", startDate: "", notes: "", assignedTo: "", value: "" });
 
   useEffect(() => {
     fetch("/api/projects").then((r) => r.json()).then(setProjects);
@@ -222,7 +223,7 @@ export default function ProjectsPage() {
     });
     const project = await res.json();
     setProjects([project, ...projects]);
-    setForm({ name: "", client: "", status: "Discovery", startDate: "", notes: "", assignedTo: "" });
+    setForm({ name: "", client: "", status: "Discovery", startDate: "", notes: "", assignedTo: "", value: "" });
     setShowForm(false);
   }
 
@@ -252,6 +253,103 @@ export default function ProjectsPage() {
     });
     setProjects(projects.map((p) => (p.id === id ? { ...p, assignedTo } : p)));
   }
+
+  const activeProjects = projects.filter((p) => p.status !== "Delivered");
+  const completedProjects = projects.filter((p) => p.status === "Delivered");
+
+  const ProjectTable = ({ rows, emptyMessage }: { rows: Project[]; emptyMessage: string }) => (
+    <div className="bg-moss/[0.03] border border-moss/10 rounded-[2rem] overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="border-moss/10">
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Project</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Client</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Status</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Assigned To</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Value</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Start Date</TableHead>
+            <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold w-10"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((p) => (
+            <React.Fragment key={p.id}>
+              <TableRow className="border-moss/10 hover:bg-moss/[0.02]">
+                <TableCell className="font-subheading font-medium text-moss">{p.name}</TableCell>
+                <TableCell className="font-subheading text-moss/70">{p.client}</TableCell>
+                <TableCell>
+                  <select
+                    value={p.status}
+                    onChange={(e) => handleStatusChange(p.id, e.target.value)}
+                    className={`font-mono-brand text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full border appearance-none cursor-pointer ${
+                      statusColors[p.status] || "bg-moss/10 text-moss"
+                    }`}
+                  >
+                    {statuses.map((s) => (
+                      <option key={s} value={s}>{s}</option>
+                    ))}
+                  </select>
+                </TableCell>
+                <TableCell>
+                  <input
+                    defaultValue={p.assignedTo}
+                    onBlur={(e) => handleAssignedToUpdate(p.id, e.target.value)}
+                    placeholder="—"
+                    className="font-subheading text-sm text-moss bg-transparent border-b border-transparent hover:border-moss/20 focus:border-clay/40 focus:outline-none transition-colors w-32 placeholder:text-moss/30"
+                  />
+                </TableCell>
+                <TableCell className="font-subheading text-sm text-moss font-medium">
+                  {p.value > 0 ? `R${p.value.toLocaleString("en-ZA")}` : "—"}
+                </TableCell>
+                <TableCell className="font-subheading text-sm text-moss/70">
+                  {new Date(p.startDate).toLocaleDateString("en-ZA")}
+                </TableCell>
+                <TableCell>
+                  <button
+                    onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
+                    className="text-moss/40 hover:text-moss transition-colors"
+                  >
+                    {expandedId === p.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                </TableCell>
+              </TableRow>
+              {expandedId === p.id && (
+                <TableRow className="border-moss/10">
+                  <TableCell colSpan={7} className="bg-moss/[0.02] px-6 py-5">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div>
+                        <p className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/40 font-bold mb-4">
+                          Milestones
+                        </p>
+                        <MilestoneTimeline projectId={p.id} />
+                      </div>
+                      <div>
+                        <p className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/40 font-bold mb-4">
+                          Activity Notes
+                        </p>
+                        <textarea
+                          defaultValue={p.notes}
+                          onBlur={(e) => handleNotesUpdate(p.id, e.target.value)}
+                          rows={6}
+                          className="w-full px-4 py-3 rounded-xl bg-cream border border-moss/15 text-moss font-subheading text-sm placeholder:text-moss/40 focus:outline-none focus:ring-2 focus:ring-clay/40 transition-shadow resize-none"
+                          placeholder="Add notes or activity log..."
+                        />
+                      </div>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </React.Fragment>
+          ))}
+        </TableBody>
+      </Table>
+      {rows.length === 0 && (
+        <div className="p-8 text-center">
+          <p className="text-moss/40 font-subheading">{emptyMessage}</p>
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="animate-fade-in">
@@ -317,6 +415,13 @@ export default function ProjectsPage() {
                 onChange={(e) => setForm({ ...form, assignedTo: e.target.value })}
                 className="w-full px-4 py-3 rounded-xl bg-cream border border-moss/15 text-moss font-subheading placeholder:text-moss/40 focus:outline-none focus:ring-2 focus:ring-clay/40 transition-shadow"
               />
+              <input
+                type="number"
+                placeholder="Project value (R)"
+                value={form.value}
+                onChange={(e) => setForm({ ...form, value: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl bg-cream border border-moss/15 text-moss font-subheading placeholder:text-moss/40 focus:outline-none focus:ring-2 focus:ring-clay/40 transition-shadow"
+              />
             </div>
             <textarea
               placeholder="Notes..."
@@ -345,95 +450,26 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      <div className="bg-moss/[0.03] border border-moss/10 rounded-[2rem] overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="border-moss/10">
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Project</TableHead>
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Client</TableHead>
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Status</TableHead>
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Assigned To</TableHead>
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold">Start Date</TableHead>
-              <TableHead className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/50 font-bold w-10"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {projects.map((p) => (
-              <React.Fragment key={p.id}>
-                <TableRow className="border-moss/10 hover:bg-moss/[0.02]">
-                  <TableCell className="font-subheading font-medium text-moss">{p.name}</TableCell>
-                  <TableCell className="font-subheading text-moss/70">{p.client}</TableCell>
-                  <TableCell>
-                    <select
-                      value={p.status}
-                      onChange={(e) => handleStatusChange(p.id, e.target.value)}
-                      className={`font-mono-brand text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full border appearance-none cursor-pointer ${
-                        statusColors[p.status] || "bg-moss/10 text-moss"
-                      }`}
-                    >
-                      {statuses.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </TableCell>
-                  <TableCell>
-                    <input
-                      defaultValue={p.assignedTo}
-                      onBlur={(e) => handleAssignedToUpdate(p.id, e.target.value)}
-                      placeholder="—"
-                      className="font-subheading text-sm text-moss bg-transparent border-b border-transparent hover:border-moss/20 focus:border-clay/40 focus:outline-none transition-colors w-32 placeholder:text-moss/30"
-                    />
-                  </TableCell>
-                  <TableCell className="font-subheading text-sm text-moss/70">
-                    {new Date(p.startDate).toLocaleDateString("en-ZA")}
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}
-                      className="text-moss/40 hover:text-moss transition-colors"
-                    >
-                      {expandedId === p.id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                    </button>
-                  </TableCell>
-                </TableRow>
-                {expandedId === p.id && (
-                  <TableRow className="border-moss/10">
-                    <TableCell colSpan={6} className="bg-moss/[0.02] px-6 py-5">
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Milestones */}
-                        <div>
-                          <p className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/40 font-bold mb-4">
-                            Milestones
-                          </p>
-                          <MilestoneTimeline projectId={p.id} />
-                        </div>
+      {/* Active Projects */}
+      <div className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="font-heading font-bold text-xl text-moss">In Progress</h2>
+          <span className="font-mono-brand text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full bg-moss/10 text-moss">
+            {activeProjects.length}
+          </span>
+        </div>
+        <ProjectTable rows={activeProjects} emptyMessage="No active projects." />
+      </div>
 
-                        {/* Notes */}
-                        <div>
-                          <p className="font-mono-brand text-[10px] uppercase tracking-widest text-moss/40 font-bold mb-4">
-                            Activity Notes
-                          </p>
-                          <textarea
-                            defaultValue={p.notes}
-                            onBlur={(e) => handleNotesUpdate(p.id, e.target.value)}
-                            rows={6}
-                            className="w-full px-4 py-3 rounded-xl bg-cream border border-moss/15 text-moss font-subheading text-sm placeholder:text-moss/40 focus:outline-none focus:ring-2 focus:ring-clay/40 transition-shadow resize-none"
-                            placeholder="Add notes or activity log..."
-                          />
-                        </div>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </React.Fragment>
-            ))}
-          </TableBody>
-        </Table>
-        {projects.length === 0 && (
-          <div className="p-8 text-center">
-            <p className="text-moss/40 font-subheading">No projects yet. Add your first project above.</p>
-          </div>
-        )}
+      {/* Completed Projects */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="font-heading font-bold text-xl text-moss">Completed</h2>
+          <span className="font-mono-brand text-[10px] uppercase tracking-widest font-bold px-3 py-1 rounded-full bg-green-50 text-green-800">
+            {completedProjects.length}
+          </span>
+        </div>
+        <ProjectTable rows={completedProjects} emptyMessage="No completed projects yet." />
       </div>
     </div>
   );

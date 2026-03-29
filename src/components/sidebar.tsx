@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FolderKanban, DollarSign, Bot, Menu, X } from "lucide-react";
+import { LayoutDashboard, FolderKanban, DollarSign, Bot, Menu, X, Settings } from "lucide-react";
 import { useState } from "react";
 
 const navItems = [
@@ -11,6 +11,7 @@ const navItems = [
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/finances", label: "Finances", icon: DollarSign },
   { href: "/agents", label: "Agents", icon: Bot },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {

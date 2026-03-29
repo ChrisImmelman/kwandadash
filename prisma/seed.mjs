@@ -1,7 +1,13 @@
-import pkg from "@prisma/client";
-const { PrismaClient } = pkg;
+import { PrismaClient } from "../src/generated/prisma/client.js";
+import { PrismaLibSql } from "@prisma/adapter-libsql";
+import path from "path";
+import { fileURLToPath } from "url";
 
-const prisma = new PrismaClient();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const dbPath = path.resolve(__dirname, "../dev.db");
+const adapter = new PrismaLibSql({ url: `file:${dbPath}` });
+
+const prisma = new PrismaClient({ adapter });
 
 async function main() {
   await prisma.project.deleteMany();
@@ -10,11 +16,11 @@ async function main() {
 
   await prisma.project.createMany({
     data: [
-      { name: "AI Customer Support Bot", client: "TechVentures SA", status: "In Progress", startDate: new Date("2026-02-01"), notes: "Phase 2: Integrating with their CRM. Weekly syncs on Tuesdays." },
-      { name: "Internal Knowledge Agent", client: "CapitalGroup", status: "Discovery", startDate: new Date("2026-03-10"), notes: "Scoping session completed. Awaiting data access." },
-      { name: "Document Processing Pipeline", client: "LegalEase", status: "Delivered", startDate: new Date("2025-11-15"), notes: "Delivered Jan 2026. Client satisfied. Monitoring for 30 days." },
-      { name: "Sales Lead Qualifier", client: "GrowthCo", status: "Maintenance", startDate: new Date("2025-09-01"), notes: "Monthly retainer. Last update: improved response accuracy by 12%." },
-      { name: "Inventory Forecasting Agent", client: "RetailMax", status: "In Progress", startDate: new Date("2026-01-20"), notes: "Training model on 3 years of historical data." },
+      { name: "AI Customer Support Bot", client: "TechVentures SA", status: "In Progress", startDate: new Date("2026-02-01"), notes: "Phase 2: Integrating with their CRM. Weekly syncs on Tuesdays.", value: 120000 },
+      { name: "Internal Knowledge Agent", client: "CapitalGroup", status: "Discovery", startDate: new Date("2026-03-10"), notes: "Scoping session completed. Awaiting data access.", value: 85000 },
+      { name: "Document Processing Pipeline", client: "LegalEase", status: "Delivered", startDate: new Date("2025-11-15"), notes: "Delivered Jan 2026. Client satisfied. Monitoring for 30 days.", value: 95000 },
+      { name: "Sales Lead Qualifier", client: "GrowthCo", status: "Maintenance", startDate: new Date("2025-09-01"), notes: "Monthly retainer. Last update: improved response accuracy by 12%.", value: 48000 },
+      { name: "Inventory Forecasting Agent", client: "RetailMax", status: "In Progress", startDate: new Date("2026-01-20"), notes: "Training model on 3 years of historical data.", value: 110000 },
     ],
   });
 
