@@ -15,7 +15,7 @@ API keys are generated from the Settings page in the dashboard.
 ## Base URL
 
 ```
-http://localhost:3000
+https://kwandadash.vercel.app
 ```
 
 ---
