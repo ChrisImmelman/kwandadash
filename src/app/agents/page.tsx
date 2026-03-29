@@ -24,7 +24,7 @@ export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Agent & { price: string }>>({});
+  const [editForm, setEditForm] = useState<Partial<Omit<Agent, "price"> & { price: string }>>({});
   const [form, setForm] = useState({
     name: "",
     client: "",
